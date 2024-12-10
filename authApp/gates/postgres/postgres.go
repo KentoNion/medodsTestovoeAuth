@@ -1,9 +1,10 @@
-package postgres
+package store
 
 import (
 	"context"
 	"github.com/bool64/sqluct"
 	"github.com/jmoiron/sqlx"
+	"github.com/pkg/errors"
 )
 
 type Store struct {
@@ -18,14 +19,30 @@ func NewDB(db *sqlx.DB) *Store {
 	}
 }
 
-func (s Store) Save(ctx context.Context) error {
-
+func (s Store) Save(ctx context.Context, token string, userID string) error {
+	query := "INSERT INTO tokens (user_id, token) VALUES ($1, $2) ON CONFLICT (token) DO UPDATE SET token = $2"
+	_, err := s.db.ExecContext(ctx, query, userID, token)
+	if err != nil {
+		return errors.Wrap(err, "failed to save token")
+	}
+	return nil
 }
 
-func (s Store) Get(ctx context.Context) (string, error) {
-
+func (s Store) Get(ctx context.Context, token string) (bool, error) {
+	query := "SELECT 1 FROM tokens where token = $1"
+	rows, err := s.db.QueryContext(ctx, query, token)
+	defer rows.Close()
+	if err != nil {
+		return false, errors.Wrap(err, "failed to query")
+	}
+	return rows.Next(), nil
 }
 
-func (s Store) Delete(ctx context.Context) error {
-
+func (s Store) Delete(ctx context.Context, token string) error {
+	query := "DELETE FROM tokens WHERE token = $1"
+	_, err := s.db.ExecContext(ctx, query, token)
+	if err != nil {
+		return errors.Wrap(err, "failed to delete")
+	}
+	return nil
 }
