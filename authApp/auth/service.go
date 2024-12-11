@@ -116,7 +116,7 @@ func (s *service) Refresh(ctx context.Context, refresh string, ip string) (newTo
 	}
 
 	newAccessJWT := jwt.NewWithClaims(jwt.SigningMethodHS512, accessToken.MapToAccess(s.cl, refresh))
-	newAccess, err := newAccessJWT.SignedString((s.secretKey)
+	newAccess, err := newAccessJWT.SignedString((s.secretKey))
 	if err != nil {
 		return result, errors.Wrapf(err, "failed to make access token for user %s from %s", refreshToken.UserID, ip)
 	}
