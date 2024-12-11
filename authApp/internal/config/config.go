@@ -6,21 +6,30 @@ import (
 	"os"
 )
 
-type Config struct {
-	dbHost     string `yaml:"db_host" env-required:"true"`
-	dbPort     string `yaml:"db_port"`
-	dbUser     string `yaml:"db_user" env-required:"true"`
-	DbPass     string `yaml:"db_password" env-required:"true"`
-	dbName     string `yaml:"db_name" env-required:"true"`
-	dbSSL      string `yaml:"db_sslmode" env-required:"true"`
-	serverHost string `yaml:"server_host" env-required:"true"`
+type DB struct {
+	DbHost     string `yaml:"db_host" env-required:"true"`
+	DbPort     string `yaml:"db_port"`
+	DbUser     string `yaml:"db_user" env-required:"true"`
+	DbPassword string `yaml:"db_password" env-required:"true"`
+	DbName     string `yaml:"db_name" env-required:"true"`
+	DbSSLMode  string `yaml:"db_sslmode" env-required:"true"`
+}
+
+type Server struct {
+	ServerHost string `yaml:"server_host" env-required:"true"`
 	ServerPort string `yaml:"server_port" env-required:"true"`
+}
+
+type Config struct {
+	Env    string `yaml:"env"` // local, dev, prod
+	DB     DB     `yaml:"auth_db"`
+	Server Server `yaml:"auth_server"`
 }
 
 func MustLoad() (*Config, error) {
 	configPath := os.Getenv("CONFIG_PATH")
 	if configPath == "" {
-		configPath = "config.yaml"
+		configPath = "./authApp/config.yaml"
 	}
 
 	//проверка существует ли файл
@@ -28,12 +37,12 @@ func MustLoad() (*Config, error) {
 		return nil, errors.Wrapf(err, "config file not found at %s", configPath)
 	}
 
-	var cfg *Config
+	var cfg Config
 
 	err := cleanenv.ReadConfig(configPath, &cfg)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot read config file")
 	}
 
-	return cfg, nil
+	return &cfg, nil
 }
