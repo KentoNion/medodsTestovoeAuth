@@ -27,11 +27,11 @@ func (t Token) MapToRefresh(cl pkg.Clock) jwt.Claims {
 		"user_id": t.UserID,
 		"secret":  t.Secret,
 		"ip":      t.IP,
-		"exp":     cl.Now().AddDate(0, 1, 0), //интерфейс получения времени + 1 месяц
+		"exp":     cl.Now().AddDate(0, 1, 0),
 	}
 }
 
-func (t Token) Fill(claims jwt.MapClaims) error {
+func (t *Token) Fill(claims jwt.MapClaims) error {
 	var ok bool
 	t.IP, ok = claims["ip"].(string)
 	if !ok {
