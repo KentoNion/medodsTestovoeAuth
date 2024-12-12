@@ -17,7 +17,7 @@ type DB struct {
 
 type Server struct {
 	ServerHost string `yaml:"server_host" env-required:"true"`
-	ServerPort string `yaml:"server_port" env-required:"true"`
+	ServerPort string `yaml:"server_port"`
 }
 
 type Config struct {
@@ -29,7 +29,7 @@ type Config struct {
 func MustLoad() (*Config, error) {
 	configPath := os.Getenv("CONFIG_PATH")
 	if configPath == "" {
-		configPath = "./authApp/config.yaml"
+		configPath = "./config.yaml"
 	}
 
 	//проверка существует ли файл

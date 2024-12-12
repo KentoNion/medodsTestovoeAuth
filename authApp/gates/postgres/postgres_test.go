@@ -9,7 +9,7 @@ import (
 )
 
 func TestInsertGetDelete(t *testing.T) {
-	conn, err := sqlx.Connect("postgres", "user=postgres password=postgres dbname=medodsTest host=localhost sslmode=disable")
+	conn, err := sqlx.Connect("postgres", "user=postgres password=postgres dbname=medods_auth host=localhost sslmode=disable")
 	if err != nil {
 		require.NoError(t, err)
 	}
