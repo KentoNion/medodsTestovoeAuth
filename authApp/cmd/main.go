@@ -12,6 +12,7 @@ import (
 	"medodsTestovoe/gates/server"
 	"medodsTestovoe/internal/config"
 	"net/http"
+	"os"
 )
 
 func main() {
@@ -31,7 +32,11 @@ func main() {
 	notifier := notify.InitNotifier()
 
 	//инициализируем бд
-	connStr := fmt.Sprintf("user=%s password=%s dbname=%s host=%s%s sslmode=%s", Cfg.DB.DbUser, Cfg.DB.DbPassword, Cfg.DB.DbName, Cfg.DB.DbHost, Cfg.DB.DbPort, Cfg.DB.DbSSLMode)
+	dbHost := os.Getenv("DB_HOST") //получаем хоста дб из среды (так пробрасывает хост бд в постгресе)
+	if dbHost == "" {
+		dbHost = Cfg.DB.DbHost + Cfg.DB.DbPort
+	}
+	connStr := fmt.Sprintf("user=%s password=%s dbname=%s host=%s sslmode=%s", Cfg.DB.DbUser, Cfg.DB.DbPassword, Cfg.DB.DbName, dbHost, Cfg.DB.DbSSLMode)
 	conn, err := sqlx.Connect("postgres", connStr)
 	if err != nil {
 		panic(err)
@@ -39,7 +44,7 @@ func main() {
 	db := store.NewDB(conn)
 
 	//накатываем миграцию
-	err = goose.Up(conn.DB, "./gates\\postgres\\migrations")
+	err = goose.Up(conn.DB, "./migrations")
 	if err != nil {
 		panic(err)
 	}
