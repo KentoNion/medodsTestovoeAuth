@@ -72,6 +72,7 @@ func (s Server) refreshHandler(writer http.ResponseWriter, request *http.Request
 	if err != nil {
 		http.Error(writer, err.Error(), http.StatusInternalServerError)
 		s.log.Error("failed to refresh access token", zap.Error(err))
+		return
 	}
 	if err := json.NewEncoder(writer).Encode(newAccess); err != nil {
 		http.Error(writer, err.Error(), http.StatusInternalServerError)

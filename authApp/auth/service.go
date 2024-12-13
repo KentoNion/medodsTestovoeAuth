@@ -55,7 +55,7 @@ func (s *service) Authorize(ctx context.Context, secret string, userID string, i
 
 	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS512, token.MapToAccess(s.cl, refresh))
 	access, err := accessToken.SignedString([]byte(s.secretKey))
-	err = s.store.Save(ctx, userID, refresh)
+	err = s.store.Save(ctx, refresh, userID)
 	if err != nil {
 		return result, err
 	}
