@@ -17,6 +17,7 @@ type Server struct {
 	context  context.Context
 	log      *zap.Logger
 	notifier notify.Notifier
+	srv      *auth.Service
 }
 
 func NewServer(db *store.Store, router chi.Router, log *zap.Logger, notifier notify.Notifier) *Server {
@@ -25,6 +26,7 @@ func NewServer(db *store.Store, router chi.Router, log *zap.Logger, notifier not
 		context:  context.Background(),
 		log:      log,
 		notifier: notifier,
+		srv:      auth.NewService("my_secret", db, notifier, pkg.NormalClock{}),
 	}
 
 	router.HandleFunc("/login", server.loginHandler)
@@ -36,7 +38,6 @@ func NewServer(db *store.Store, router chi.Router, log *zap.Logger, notifier not
 
 func (s Server) loginHandler(writer http.ResponseWriter, request *http.Request) {
 	s.log.Info("serving /login")
-	srv := auth.NewService("my_secret", s.db, s.notifier, pkg.NormalClock{})
 	userID := request.FormValue("user_id")
 	secret := request.FormValue("secret")
 	ip := request.RemoteAddr
@@ -46,7 +47,7 @@ func (s Server) loginHandler(writer http.ResponseWriter, request *http.Request) 
 		return
 	}
 	var authTokens auth.AuthTokens
-	authTokens, err := srv.Authorize(s.context, secret, userID, ip)
+	authTokens, err := s.srv.Authorize(s.context, secret, userID, ip)
 	if err == auth.ErrWrongToken {
 		http.Error(writer, err.Error(), http.StatusUnauthorized)
 		zap.Error(err)
@@ -64,11 +65,11 @@ func (s Server) loginHandler(writer http.ResponseWriter, request *http.Request) 
 
 func (s Server) refreshHandler(writer http.ResponseWriter, request *http.Request) {
 	s.log.Info("serving /refresh")
-	srv := auth.NewService("my_secret", s.db, s.notifier, pkg.NormalClock{})
 
-	refresh := request.FormValue("refresh_token")
+	refreshStr := request.FormValue("refresh_token")
+	refresh := auth.Refresh(refreshStr)
 	userID := request.FormValue("user_id")
-	newAccess, err := srv.Refresh(s.context, refresh, request.RemoteAddr)
+	newAccess, err := s.srv.Refresh(s.context, refresh, request.RemoteAddr)
 	if err != nil {
 		http.Error(writer, err.Error(), http.StatusInternalServerError)
 		s.log.Error("failed to refresh access token", zap.Error(err))

@@ -8,24 +8,24 @@ import (
 )
 
 type authStore interface {
-	Save(ctx context.Context, token string, userID string) error
-	Get(ctx context.Context, token string) (bool, error)
-	Delete(ctx context.Context, token string) error
+	Save(ctx context.Context, token Refresh, userID string) error
+	Get(ctx context.Context, token Refresh) (bool, error)
+	Delete(ctx context.Context, token Refresh) error
 }
 
 type notifier interface {
 	NotifyNewLogin(ctx context.Context, userID string, oldIP string, newIP string) error
 }
 
-type service struct {
+type Service struct {
 	secretKey string
 	store     authStore
 	notifier  notifier
 	cl        pkg.Clock
 }
 
-func NewService(secretKey string, store authStore, notifier notifier, cl pkg.Clock) *service {
-	return &service{
+func NewService(secretKey string, store authStore, notifier notifier, cl pkg.Clock) *Service {
+	return &Service{
 		secretKey: secretKey,
 		store:     store,
 		notifier:  notifier,
@@ -33,7 +33,7 @@ func NewService(secretKey string, store authStore, notifier notifier, cl pkg.Clo
 	}
 }
 
-func (s *service) Authorize(ctx context.Context, secret string, userID string, ip string) (Tokens AuthTokens, err error) {
+func (s *Service) Authorize(ctx context.Context, secret string, userID string, ip string) (Tokens AuthTokens, err error) {
 	//JWT, SHA512, не храним
 	token := Token{
 		UserID: userID,
@@ -48,13 +48,17 @@ func (s *service) Authorize(ctx context.Context, secret string, userID string, i
 	if err != nil {
 		return result, errors.Wrap(err, "failed to make access token")
 	}
-	refresh, err := refreshToken.SignedString([]byte(s.secretKey))
+	var refresh Refresh
+	refreshStr, err := refreshToken.SignedString([]byte(s.secretKey))
+	refresh = Refresh(refreshStr)
 	if err != nil {
 		return result, errors.Wrap(err, "failed to make refresh token")
 	}
 
-	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS512, token.MapToAccess(s.cl, refresh))
-	access, err := accessToken.SignedString([]byte(s.secretKey))
+	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS512, token.MapToAccess(s.cl, refreshStr))
+	var access Access
+	accessStr, err := accessToken.SignedString([]byte(s.secretKey))
+	access = Access(accessStr)
 	err = s.store.Save(ctx, refresh, userID)
 	if err != nil {
 		return result, err
@@ -67,12 +71,13 @@ func (s *service) Authorize(ctx context.Context, secret string, userID string, i
 	return result, nil
 }
 
-func (s *service) Refresh(ctx context.Context, refresh string, ip string) (newTokens AuthTokens, err error) {
+func (s *Service) Refresh(ctx context.Context, refresh Refresh, ip string) (newTokens AuthTokens, err error) {
 	//храним в базе в виде хеша
 	result := AuthTokens{
 		Access:  "",
 		Refresh: "",
 	}
+	refreshStr := string(refresh)
 	exists, err := s.store.Get(ctx, refresh)
 	if err != nil {
 		return result, errors.Wrap(err, "failed to check access token")
@@ -82,7 +87,7 @@ func (s *service) Refresh(ctx context.Context, refresh string, ip string) (newTo
 	}
 
 	claims := jwt.MapClaims{}
-	token, err := jwt.ParseWithClaims(refresh, &claims, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(refreshStr, &claims, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
 		}
@@ -115,11 +120,12 @@ func (s *service) Refresh(ctx context.Context, refresh string, ip string) (newTo
 		return result, ErrWrongToken
 	}
 
-	newAccessJWT := jwt.NewWithClaims(jwt.SigningMethodHS512, accessToken.MapToAccess(s.cl, refresh))
-	newAccess, err := newAccessJWT.SignedString([]byte(s.secretKey))
+	newAccessJWT := jwt.NewWithClaims(jwt.SigningMethodHS512, accessToken.MapToAccess(s.cl, refreshStr))
+	newAccessStr, err := newAccessJWT.SignedString([]byte(s.secretKey))
 	if err != nil {
 		return result, errors.Wrapf(err, "failed to make access token for user %s from %s", refreshToken.UserID, ip)
 	}
+	newAccess := Access(newAccessStr)
 
 	result = AuthTokens{
 		Access:  newAccess,

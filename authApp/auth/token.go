@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+type Refresh string
+type Access string
+
 type Token struct {
 	UserID string
 	Secret string
@@ -49,8 +52,8 @@ func (t *Token) Fill(claims jwt.MapClaims) error {
 }
 
 type AuthTokens struct {
-	Access  string `json:"access"`
-	Refresh string `json:"refresh"`
+	Access  Access  `json:"access"`
+	Refresh Refresh `json:"refresh"`
 }
 
 var ErrWrongToken = errors.New("Wrong token")
