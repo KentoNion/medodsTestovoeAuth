@@ -67,15 +67,15 @@ func (s Server) refreshHandler(writer http.ResponseWriter, request *http.Request
 	s.log.Info("serving /refresh")
 
 	refreshStr := request.FormValue("refresh_token")
-	refresh := auth.Refresh(refreshStr)
+	refresh := pkg.Refresh(refreshStr)
 	userID := request.FormValue("user_id")
-	newAccess, err := s.srv.Refresh(s.context, refresh, request.RemoteAddr)
+	newTokens, err := s.srv.Refresh(s.context, refresh, request.RemoteAddr)
 	if err != nil {
 		http.Error(writer, err.Error(), http.StatusInternalServerError)
 		s.log.Error("failed to refresh access token", zap.Error(err))
 		return
 	}
-	if err := json.NewEncoder(writer).Encode(newAccess); err != nil {
+	if err := json.NewEncoder(writer).Encode(newTokens); err != nil {
 		http.Error(writer, err.Error(), http.StatusInternalServerError)
 		s.log.Error("failed to encode auth tokens", zap.String("user_id", userID))
 		return

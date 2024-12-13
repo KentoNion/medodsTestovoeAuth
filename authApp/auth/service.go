@@ -8,9 +8,9 @@ import (
 )
 
 type authStore interface {
-	Save(ctx context.Context, token Refresh, userID string) error
-	Get(ctx context.Context, token Refresh) (bool, error)
-	Delete(ctx context.Context, token Refresh) error
+	Save(ctx context.Context, token pkg.Refresh, userID string) error
+	Get(ctx context.Context, token pkg.Refresh) (bool, error)
+	Delete(ctx context.Context, token pkg.Refresh) error
 }
 
 type notifier interface {
@@ -48,17 +48,17 @@ func (s *Service) Authorize(ctx context.Context, secret string, userID string, i
 	if err != nil {
 		return result, errors.Wrap(err, "failed to make access token")
 	}
-	var refresh Refresh
+	var refresh pkg.Refresh
 	refreshStr, err := refreshToken.SignedString([]byte(s.secretKey))
-	refresh = Refresh(refreshStr)
+	refresh = pkg.Refresh(refreshStr)
 	if err != nil {
 		return result, errors.Wrap(err, "failed to make refresh token")
 	}
 
 	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS512, token.MapToAccess(s.cl, refreshStr))
-	var access Access
+	var access pkg.Access
 	accessStr, err := accessToken.SignedString([]byte(s.secretKey))
-	access = Access(accessStr)
+	access = pkg.Access(accessStr)
 	err = s.store.Save(ctx, refresh, userID)
 	if err != nil {
 		return result, err
@@ -71,7 +71,7 @@ func (s *Service) Authorize(ctx context.Context, secret string, userID string, i
 	return result, nil
 }
 
-func (s *Service) Refresh(ctx context.Context, refresh Refresh, ip string) (newTokens AuthTokens, err error) {
+func (s *Service) Refresh(ctx context.Context, refresh pkg.Refresh, ip string) (newTokens AuthTokens, err error) {
 	//храним в базе в виде хеша
 	result := AuthTokens{
 		Access:  "",
@@ -125,7 +125,7 @@ func (s *Service) Refresh(ctx context.Context, refresh Refresh, ip string) (newT
 	if err != nil {
 		return result, errors.Wrapf(err, "failed to make access token for user %s from %s", refreshToken.UserID, ip)
 	}
-	newAccess := Access(newAccessStr)
+	newAccess := pkg.Access(newAccessStr)
 
 	result = AuthTokens{
 		Access:  newAccess,
