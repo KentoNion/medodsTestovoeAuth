@@ -29,8 +29,8 @@ func NewServer(db *store.Store, router chi.Router, log *zap.Logger, notifier not
 		srv:      auth.NewService("my_secret", db, notifier, pkg.NormalClock{}),
 	}
 
-	router.HandleFunc("/login", server.loginHandler)
-	router.HandleFunc("/refresh", server.refreshHandler)
+	router.Method(http.MethodPost, "/login", http.HandlerFunc(server.loginHandler))
+	router.Method(http.MethodPost, "/refresh", http.HandlerFunc(server.refreshHandler))
 
 	server.log.Info("router configured")
 	return server
