@@ -1,11 +1,18 @@
-FROM golang:1.23.4 AS builder
+FROM golang:1.23.4-alpine AS builder
 
-RUN go version
-ENV GOPATH=/
+WORKDIR /usr/local/src
 
-COPY ./authApp ./
-
+COPY ["authApp/go.mod", "authApp/go.sum", "./"]
 RUN go mod download
-RUN go build -o app ./cmd/main.go
 
-cmd ["./app"]
+#build
+COPY authApp ./
+RUN go build -o ./bin/app cmd/main.go
+
+FROM alpine AS runner
+
+COPY --from=builder /usr/local/src/bin/app ./
+COPY authApp/config.yaml ./
+COPY authApp/migrations ./migrations
+
+CMD ["/app"]
