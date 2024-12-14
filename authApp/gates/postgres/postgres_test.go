@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestInsertGetDelete(t *testing.T) {
+func TestInsertGetCheckExistDelete(t *testing.T) {
 	conn, err := sqlx.Connect("postgres", "user=postgres password=postgres dbname=medods_auth host=localhost sslmode=disable")
 	if err != nil {
 		require.NoError(t, err)
@@ -16,17 +16,28 @@ func TestInsertGetDelete(t *testing.T) {
 	db := NewDB(conn)
 	ctx := context.Background()
 
-	err = db.Save(ctx, "testToken", "testUser")
+	err = db.Save(ctx, "testToken", "testUser", "255.255.255.255")
 	require.NoError(t, err)
 
-	got, err := db.Get(ctx, "testToken")
-	require.NoError(t, err)
+	got, ip, err := db.Get(ctx, "testUser", "testToken2")
+	require.Error(t, err)
+	got, ip, err = db.Get(ctx, "testUser2", "testToken")
+	require.Error(t, err)
+	got, ip, err = db.Get(ctx, "testUser", "testToken")
 	require.Equal(t, true, got)
+	require.Equal(t, ip, "255.255.255.255")
 
-	err = db.Delete(ctx, "testToken")
+	exist, err := db.CheckUserExist(ctx, "testUser")
+	require.NoError(t, err)
+	require.True(t, exist)
+
+	err = db.Delete(ctx, "testUser")
 	require.NoError(t, err)
 
-	got, err = db.Get(ctx, "testToken")
-	require.NoError(t, err)
+	got, ip, err = db.Get(ctx, "testUser", "testToken")
+	require.Error(t, err)
 	require.Equal(t, false, got)
+	exist, err = db.CheckUserExist(ctx, "testUser")
+	require.NoError(t, err)
+	require.False(t, exist)
 }

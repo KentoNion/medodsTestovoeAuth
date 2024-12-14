@@ -2,15 +2,18 @@ package auth
 
 import (
 	"context"
+	"encoding/base64"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"medodsTestovoe/auth/pkg"
 )
 
 type authStore interface {
-	Save(ctx context.Context, token pkg.Refresh, userID string) error
-	Get(ctx context.Context, token pkg.Refresh) (bool, error)
-	Delete(ctx context.Context, token pkg.Refresh) error
+	Save(ctx context.Context, token pkg.Refresh, userID string, ip string) error
+	Get(ctx context.Context, userID string, token pkg.Refresh) (bool, string, error)
+	Delete(ctx context.Context, userID string) error
+	CheckUserExist(ctx context.Context, userID string) (bool, error)
 }
 
 type notifier interface {
@@ -35,6 +38,7 @@ func NewService(secretKey string, store authStore, notifier notifier, cl pkg.Clo
 
 func (s *Service) Authorize(ctx context.Context, secret string, userID string, ip string) (Tokens AuthTokens, err error) {
 	//JWT, SHA512, не храним
+	//заполняем токен
 	token := Token{
 		UserID: userID,
 		Secret: secret,
@@ -44,26 +48,39 @@ func (s *Service) Authorize(ctx context.Context, secret string, userID string, i
 		Access:  "",
 		Refresh: "",
 	}
-	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS512, token.MapToRefresh(s.cl))
+	//Проверка сущетсвует ли такой пользователь в бд
+	exist, err := s.store.CheckUserExist(ctx, userID)
+	if err != nil {
+		return Tokens, errors.Wrap(err, "error checking user existence")
+	}
+	if exist {
+		return result, ErrUserAlreadyExists
+	}
+
+	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, token.MapToRefresh(s.cl))
 	if err != nil {
 		return result, errors.Wrap(err, "failed to make access token")
 	}
 	var refresh pkg.Refresh
 	refreshStr, err := refreshToken.SignedString([]byte(s.secretKey))
-	refresh = pkg.Refresh(refreshStr)
+	refreshStrBase64 := base64.StdEncoding.EncodeToString([]byte(refreshStr))
+	if len(refreshStrBase64) > 64 {
+		refreshStrBase64 = refreshStrBase64[len(refreshStrBase64)-66 : len(refreshStrBase64)-2] //bcrypt требует длинну токена не больше чем 64 байта, я не придумал как ещё можно влезть в это требование кроме как обрезать токен по изменяемой части
+	}
+	refresh = pkg.Refresh(refreshStrBase64)
 	if err != nil {
 		return result, errors.Wrap(err, "failed to make refresh token")
 	}
-
+	//генерируем аксес токен
 	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS512, token.MapToAccess(s.cl, refreshStr))
 	var access pkg.Access
 	accessStr, err := accessToken.SignedString([]byte(s.secretKey))
 	access = pkg.Access(accessStr)
-	err = s.store.Save(ctx, refresh, userID)
+	err = s.store.Save(ctx, refresh, userID, ip) //сохраняем рефреш, userID и ip в бд
 	if err != nil {
 		return result, err
 	}
-
+	//формируем тело ответа
 	result = AuthTokens{
 		Access:  access,
 		Refresh: refresh,
@@ -71,74 +88,37 @@ func (s *Service) Authorize(ctx context.Context, secret string, userID string, i
 	return result, nil
 }
 
-func (s *Service) Refresh(ctx context.Context, refresh pkg.Refresh, ip string) (newTokens AuthTokens, err error) {
+func (s *Service) Refresh(ctx context.Context, userID string, refresh pkg.Refresh, ip string) (newTokens AuthTokens, err error) {
 	//храним в базе в виде хеша
-	result := AuthTokens{
+	result := AuthTokens{ //регестрируем пустой результат
 		Access:  "",
 		Refresh: "",
 	}
-	refreshStr := string(refresh)
-	exists, err := s.store.Get(ctx, refresh)
+	//проверка существует ли такой токен в БД а так же извлечение значения старого ip адреса
+	exists, oldIP, err := s.store.Get(ctx, userID, refresh)
 	if err != nil {
-		return result, errors.Wrap(err, "failed to check access token")
+		return result, err
 	}
 	if !exists {
 		return result, ErrRefreshTokenNotFound
 	}
 
-	claims := jwt.MapClaims{}
-	token, err := jwt.ParseWithClaims(refreshStr, &claims, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, errors.New("unexpected signing method")
-		}
-		return []byte(s.secretKey), nil
-	})
-	if err != nil {
-		return result, errors.Wrap(err, "failed to parse refresh token")
-	}
-	if !token.Valid {
-		return result, ErrWrongToken
-	}
-	refreshToken := Token{}
-	if err := refreshToken.Fill(claims); err != nil {
-		return result, errors.Wrapf(err, "failed to parse refresh token for user %s from %s", refreshToken.UserID, ip)
-	}
-
-	if ip != refreshToken.IP { // проверяем соответствует ли текущий ip старому ip при authorize
-		err := s.notifier.NotifyNewLogin(ctx, refreshToken.UserID, ip, refreshToken.IP)
+	if ip != oldIP { // проверяем соответствует ли текущий ip старому ip при authorize
+		err := s.notifier.NotifyNewLogin(ctx, userID, ip, oldIP)
 		if err != nil {
-			return result, errors.Wrapf(err, "failed to notify new login for user %s from %s, old IP - %s", refreshToken.UserID, ip, refreshToken.IP)
+			return result, errors.Wrapf(err, "failed to notify new login for user %s from %s, old IP - %s", userID, ip, oldIP)
 		}
 	}
-
-	//генерируем новый access
-	accessToken := Token{}
-	if err := accessToken.Fill(claims); err != nil {
-		return result, errors.Wrapf(err, "failed to parse access token for user %s from %s", refreshToken.UserID, ip)
-	}
-	if refreshToken.Secret != accessToken.Secret {
-		return result, ErrWrongToken
-	}
-
-	newAccessJWT := jwt.NewWithClaims(jwt.SigningMethodHS512, accessToken.MapToAccess(s.cl, refreshStr))
-	newAccessStr, err := newAccessJWT.SignedString([]byte(s.secretKey))
+	/*
+		!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		из задания: Refresh токен должен быть защищён от повторного использования
+		Я так понял нам нужно сгенерировать новый Refresh
+		!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	*/
+	//генерируем новые access и refresh если прошли все проверки выше
+	err = s.store.Delete(ctx, userID) //удаляем старую запись
 	if err != nil {
-		return result, errors.Wrapf(err, "failed to make access token for user %s from %s", refreshToken.UserID, ip)
+		return result, err
 	}
-	newAccess := pkg.Access(newAccessStr)
-
-	result = AuthTokens{
-		Access:  newAccess,
-		Refresh: refresh,
-	}
-	return result, nil
+	return s.Authorize(ctx, uuid.New().String(), userID, ip) //создаём новую запись с тем же userID и возвращаем новые токены
 }
-
-/*
-Логика рефреша такая: По истечению аксес токена нужно произвести рефреш, мы считываем тот рефреш что даёт пользователь, сверяем его с тем что с бд, если там есть такой то:
-1. Достаём старый ip из рефреш токена
-2. Сравниваем его с переданным ip
-3. Если ip не совпадают отправляем уведомление в моковый нотификатор
-4. Генерируем новый access токен
-5. Передаём новый аксес и старый рефреш если всё ок.
-*/

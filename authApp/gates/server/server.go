@@ -31,7 +31,6 @@ func NewServer(db *store.Store, router chi.Router, log *zap.Logger, notifier not
 
 	router.Method(http.MethodPost, "/login", http.HandlerFunc(server.loginHandler))
 	router.Method(http.MethodPost, "/refresh", http.HandlerFunc(server.refreshHandler))
-
 	server.log.Info("router configured")
 	return server
 }
@@ -40,16 +39,25 @@ func (s Server) loginHandler(writer http.ResponseWriter, request *http.Request) 
 	s.log.Info("serving /login")
 	userID := request.FormValue("user_id")
 	secret := request.FormValue("secret")
-	ip := request.RemoteAddr
 	if userID == "" {
 		http.Error(writer, "empty user", http.StatusUnauthorized)
 		s.log.Error("empty user id")
 		return
 	}
 	var authTokens auth.AuthTokens
-	authTokens, err := s.srv.Authorize(s.context, secret, userID, ip)
+	authTokens, err := s.srv.Authorize(s.context, secret, userID, request.RemoteAddr)
 	if err == auth.ErrWrongToken {
 		http.Error(writer, err.Error(), http.StatusUnauthorized)
+		zap.Error(err)
+		return
+	}
+	if err == auth.ErrUserAlreadyExists {
+		http.Error(writer, err.Error(), http.StatusConflict)
+		s.log.Error("user already exists")
+		return
+	}
+	if err != nil {
+		http.Error(writer, err.Error(), http.StatusInternalServerError)
 		zap.Error(err)
 		return
 	}
@@ -69,7 +77,7 @@ func (s Server) refreshHandler(writer http.ResponseWriter, request *http.Request
 	refreshStr := request.FormValue("refresh_token")
 	refresh := pkg.Refresh(refreshStr)
 	userID := request.FormValue("user_id")
-	newTokens, err := s.srv.Refresh(s.context, refresh, request.RemoteAddr)
+	newTokens, err := s.srv.Refresh(s.context, userID, refresh, request.RemoteAddr)
 	if err != nil {
 		http.Error(writer, err.Error(), http.StatusInternalServerError)
 		s.log.Error("failed to refresh access token", zap.Error(err))

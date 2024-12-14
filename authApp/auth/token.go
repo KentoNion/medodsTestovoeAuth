@@ -56,3 +56,5 @@ type AuthTokens struct {
 var ErrWrongToken = errors.New("Wrong token")
 
 var ErrRefreshTokenNotFound = errors.New("Refresh token not found")
+
+var ErrUserAlreadyExists = errors.New("User already exists")

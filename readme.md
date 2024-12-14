@@ -4,15 +4,18 @@
 3. Есть тесты на бд и сервис(основная логика проекта) и мини-тест на существование файла конфига.
 4. /login и /regresh запросы необходимо осуществлять методом POST
 5. Докер работает!
+6. Если пользователь уже существует, не получится применить authorize с тем же самым userID
+7. Можно использовать любую string как userID (т.е можно написать никнейм к примеру)
+8. функция рефреш обновляет рефреш токен как того требует задание, и не позволяет использовать рефреш токен более 1 раза (как я понял это задание)
 
 Пример отправляемого запроса Authorize POST:
-http://localhost:8050/login?user_id=1&secret=123
+http://localhost:8050/login?user_id=1&secret=789
 Пример ответа:
 {"access":"eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MzQxMTUwNzEsImlwIjoiMTI3LjAuMC4xOjU5MTc1IiwicmVmcmVzaCI6ImV5SmhiR2NpT2lKSVV6VXhNaUlzSW5SNWNDSTZJa3BYVkNKOS5leUpsZUhBaU9pSXlNREkxTFRBeExURXlWREl4T2pNM09qVXhMamMyTVRZMU9UUXJNRE02TURBaUxDSnBjQ0k2SWpFeU55NHdMakF1TVRvMU9URTNOU0lzSW5ObFkzSmxkQ0k2SWpFeU15SXNJblZ6WlhKZmFXUWlPaUl4SW4wLnQtREFRcHduWFAzbnJ4YkQ4T1gzaG9iZGNWQTFNc2FWeVJmM0otNUN3NllOUXJUWDRvYjR6SDRvaE4tOUJkSDdiSTZIY0ZzV0FGODQ2ZWJ5S3JaS09nIiwidXNlcl9pZCI6IjEifQ.CL8Jzz9uzxFhDQWRYvSF2BEGJHJLEMVkq7DJFmVogu52R_lFIz2DSwa2PeroGJ7ptvIyrxj1GGGNB7wga0U_gQ","refresh":"eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOiIyMDI1LTAxLTEyVDIxOjM3OjUxLjc2MTY1OTQrMDM6MDAiLCJpcCI6IjEyNy4wLjAuMTo1OTE3NSIsInNlY3JldCI6IjEyMyIsInVzZXJfaWQiOiIxIn0.t-DAQpwnXP3nrxbD8OX3hobdcVA1MsaVyRf3J-5Cw6YNQrTX4ob4zH4ohN-9BdH7bI6HcFsWAF846ebyKrZKOg"}
 
 Пример отправляемого запроса refresh POST:
-localhost:8050/refresh?user_id=1&refresh_token=eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOiIyMDI1LTAxLTEyVDIxOjM3OjUxLjc2MTY1OTQrMDM6MDAiLCJpcCI6IjEyNy4wLjAuMTo1OTE3NSIsInNlY3JldCI6IjEyMyIsInVzZXJfaWQiOiIxIn0.t-DAQpwnXP3nrxbD8OX3hobdcVA1MsaVyRf3J-5Cw6YNQrTX4ob4zH4ohN-9BdH7bI6HcFsWAF846ebyKrZKOg
-Ответ будет состоять из двух токенов: новый access и старый refresh
+http://localhost:8050/refresh?refresh_token=VpZlEuSkZMVFQwRnVQblJkMnI4SGxxNU1FdVZtVHhmWFEydEF0em9odzNoaVhCTQ&user_id=1
+Ответ будет состоять из двух токенов: новый access и нового refresh (см пункт 8 фичей и особенностей)
 
 # Test task BackDev
 

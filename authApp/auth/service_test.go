@@ -24,12 +24,43 @@ func TestAuthorize(t *testing.T) {
 		cl:        pkg.StubClock{time.Date(2024, time.September, 24, 0, 0, 0, 0, time.UTC)},
 	}
 
-	expectRefresh := gomock.Any()
-	store.EXPECT().Save(gomock.Any(), expectRefresh, "test_user").Return(nil)
+	store.EXPECT().Save(gomock.Any(), gomock.Any(), "test_user", "123.123.123.123").Return(nil)
+	store.EXPECT().CheckUserExist(gomock.Any(), gomock.Any()).Return(false, nil)
 
 	ctx := context.Background()
 	tok, err := svc.Authorize(ctx, "password", "test_user", "123.123.123.123")
 	require.NoError(t, err)
-	require.Equal(t, pkg.Access("eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MjcxMzYwMTAsImlwIjoiMTIzLjEyMy4xMjMuMTIzIiwicmVmcmVzaCI6ImV5SmhiR2NpT2lKSVV6VXhNaUlzSW5SNWNDSTZJa3BYVkNKOS5leUpsZUhBaU9qRTNNamszTWpnd01EQXNJbWx3SWpvaU1USXpMakV5TXk0eE1qTXVNVEl6SWl3aWMyVmpjbVYwSWpvaWNHRnpjM2R2Y21RaUxDSjFjMlZ5WDJsa0lqb2lkR1Z6ZEY5MWMyVnlJbjAuc3pReUxEcHo2Vm0yLVFMOU5BMmVuQkE1dWNhT0JvTjBJcmJvTV9SUERqQllyWTJ3MC0zQmhFTC01aXVQeGtBeVBzczhJUWpQVmJhdjQzdldXdE5SQmciLCJ1c2VyX2lkIjoidGVzdF91c2VyIn0.8AqHN2W5zka-oBOyqg52xrGd4qp1NF50pWdrUva7Wcc9hTuLKYfDKed7tbU5mlfBT1nXEJHrj2znoyJByusekw"), tok.Access)
-	require.Equal(t, pkg.Refresh("eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Mjk3MjgwMDAsImlwIjoiMTIzLjEyMy4xMjMuMTIzIiwic2VjcmV0IjoicGFzc3dvcmQiLCJ1c2VyX2lkIjoidGVzdF91c2VyIn0.szQyLDpz6Vm2-QL9NA2enBA5ucaOBoN0IrboM_RPDjBYrY2w0-3BhEL-5iuPxkAyPss8IQjPVbav43vWWtNRBg"), tok.Refresh)
+	require.Equal(t, pkg.Access("eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MjcxMzYwMTAsImlwIjoiMTIzLjEyMy4xMjMuMTIzIiwicmVmcmVzaCI6ImV5SmhiR2NpT2lKSVV6STFOaUlzSW5SNWNDSTZJa3BYVkNKOS5leUpsZUhBaU9qRTNNamszTWpnd01EQXNJbWx3SWpvaU1USXpMakV5TXk0eE1qTXVNVEl6SWl3aWMyVmpjbVYwSWpvaWNHRnpjM2R2Y21RaUxDSjFjMlZ5WDJsa0lqb2lkR1Z6ZEY5MWMyVnlJbjAuM2JYcVZhNFcwdVlmYk9JYzBvTm9XdkFuVHMwamJCWU9Jd0hZYWo5NGhIbyIsInVzZXJfaWQiOiJ0ZXN0X3VzZXIifQ.CRbUkxRi7tA_Sos8CpvEXu53OE1qYE0FH-4M3uEbpH-iOruMk8MJtTz3Mh-9sesdtCvzW8DtHBa3Kpl8OCqfzA"), tok.Access)
+	require.Equal(t, pkg.Refresh("JWeUluMC4zYlhxVmE0VzB1WWZiT0ljMG9Ob1d2QW5UczBqYkJZT0l3SFlhajk0aE"), tok.Refresh)
+}
+
+func TestRefresh(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	store := mock.NewMockauthStore(ctrl)
+	notifier := mock.NewMocknotifier(ctrl)
+
+	svc := Service{
+		secretKey: "test_key",
+		store:     store,
+		notifier:  notifier,
+		cl:        pkg.StubClock{time.Date(2024, time.September, 24, 0, 0, 0, 0, time.UTC)},
+	}
+	//проверка правильности выдаваемой ошибки если такого рефреш токена не сущетсвует
+	store.EXPECT().Get(gomock.Any(), "testUser", pkg.Refresh("123")).Return(false, "123.123.123.123", nil)
+
+	ctx := context.Background()
+	_, err := svc.Refresh(ctx, "testUser", "123", "123.123.123.123")
+
+	require.Equal(t, err, ErrRefreshTokenNotFound)
+
+	store.EXPECT().Get(gomock.Any(), "testUser", pkg.Refresh("123")).Return(true, "123.123.123.123", nil)
+	store.EXPECT().Delete(gomock.Any(), "testUser").Return(nil)
+	store.EXPECT().CheckUserExist(gomock.Any(), gomock.Any()).Return(false, nil)
+	store.EXPECT().Save(gomock.Any(), gomock.Any(), "testUser", "123.123.123.123").Return(nil)
+
+	tokens, err := svc.Refresh(ctx, "testUser", "123", "123.123.123.123")
+	require.NoError(t, err)
+	require.NotEmpty(t, tokens)
 }
