@@ -4,19 +4,19 @@
 3. Есть тесты на бд и сервис(основная логика проекта) и мини-тест на существование файла конфига.
 4. /login и /regresh запросы необходимо осуществлять методом POST
 5. Докер работает!
-6. Если пользователь уже существует, не получится применить authorize с тем же самым userID
-7. Можно использовать любую string как userID (т.е можно написать никнейм к примеру)
+6. Если пользователь уже существует, не получится применить authorize с тем же самым GUID
+7. Можно использовать любую string как GUID
 8. функция рефреш обновляет рефреш токен как того требует задание, и не позволяет использовать рефреш токен более 1 раза (как я понял это задание)
-9. Тело запросов игнорируется, можно было бы userID, secret и передачу токена реализовать через Json, но в задании это не обговорено.
-10. По хорошему secret в соответсвии с заданием должен генерироваться с помощью uuid.New().String(), но это не позволяет реализовать тест authorize, тк каждый раз будет генерироваться новый токен, поэтому вместо uuid.New().String() я вынес генерацию secret на внешнюю сторону, это допущение здесь только для реализации теста. (строка 44 файла authApp/auth/service.go)
+9. Тело запросов игнорируется, можно было бы GUID и передачу токена реализовать через Json, но в задании это не обговорено. 
+10. Server, Service, Postgres (db) и config обложены тестами
 
 Пример отправляемого запроса Authorize POST:
-http://localhost:8050/login?user_id=1&secret=789
+localhost:8050/login?GUID=1
 Пример ответа:
-{"access":"eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MzQxMTUwNzEsImlwIjoiMTI3LjAuMC4xOjU5MTc1IiwicmVmcmVzaCI6ImV5SmhiR2NpT2lKSVV6VXhNaUlzSW5SNWNDSTZJa3BYVkNKOS5leUpsZUhBaU9pSXlNREkxTFRBeExURXlWREl4T2pNM09qVXhMamMyTVRZMU9UUXJNRE02TURBaUxDSnBjQ0k2SWpFeU55NHdMakF1TVRvMU9URTNOU0lzSW5ObFkzSmxkQ0k2SWpFeU15SXNJblZ6WlhKZmFXUWlPaUl4SW4wLnQtREFRcHduWFAzbnJ4YkQ4T1gzaG9iZGNWQTFNc2FWeVJmM0otNUN3NllOUXJUWDRvYjR6SDRvaE4tOUJkSDdiSTZIY0ZzV0FGODQ2ZWJ5S3JaS09nIiwidXNlcl9pZCI6IjEifQ.CL8Jzz9uzxFhDQWRYvSF2BEGJHJLEMVkq7DJFmVogu52R_lFIz2DSwa2PeroGJ7ptvIyrxj1GGGNB7wga0U_gQ","refresh":"VpZlEuSkZMVFQwRnVQblJkMnI4SGxxNU1FdVZtVHhmWFEydEF0em9odzNoaVhCTQ"}
+{"access":"eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MzQyOTc5NzEsImlwIjoiMTI3LjAuMC4xOjUyNTM4IiwicmVmcmVzaCI6ImV5SmhiR2NpT2lKSVV6STFOaUlzSW5SNWNDSTZJa3BYVkNKOS5leUpsZUhBaU9qRTNNelk1TnpZek5qRXNJbWx3SWpvaU1USTNMakF1TUM0eE9qVXlOVE00SWl3aWMyVmpjbVYwSWpvaVlqRmlZbUV3WVRJdFpHSmxNeTAwTUdGa0xXRmtORFF0T0RaaFlqTXpZV1ZrT1dOaElpd2lkWE5sY2w5cFpDSTZJalVpZlEuNDdOU1QwdjFtOVpqZDc5UExZdFhpTVhNWHhkZDc4YjhRckh5QWo5dHZyOCIsInVzZXJfaWQiOiI1In0.oODBUJdI9OvOPuOp9Or-VJJHGcamhE4l5yzJEqT1QVqsKZeoXStg5jwzTZMAegjnZtqaBrxQ_ZSZmef8ai7Vvw","refresh":"lqVWlmUS40N05TVDB2MW05WmpkNzlQTFl0WGlNWE1YeGRkNzhiOFFySHlBajl0dn"}
 
 Пример отправляемого запроса refresh POST:
-http://localhost:8050/refresh?refresh_token=VpZlEuSkZMVFQwRnVQblJkMnI4SGxxNU1FdVZtVHhmWFEydEF0em9odzNoaVhCTQ&user_id=1
+localhost:8050/refresh?refresh_token=lqVWlmUS40N05TVDB2MW05WmpkNzlQTFl0WGlNWE1YeGRkNzhiOFFySHlBajl0dn&GUID=1
 Ответ будет состоять из двух токенов: новый access и нового refresh (см пункт 8 фичей и особенностей)
 
 # Test task BackDev

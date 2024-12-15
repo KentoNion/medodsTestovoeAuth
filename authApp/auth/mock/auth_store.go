@@ -7,7 +7,7 @@
 //
 
 // Package mock_auth is a generated GoMock package.
-package mock_auth
+package mock
 
 import (
 	context "context"
@@ -17,46 +17,31 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
-// MockauthStore is a mock of authStore interface.
-type MockauthStore struct {
+// MockAuthStore is a mock of AuthStore interface.
+type MockAuthStore struct {
 	ctrl     *gomock.Controller
-	recorder *MockauthStoreMockRecorder
+	recorder *MockAuthStoreMockRecorder
 }
 
-// MockauthStoreMockRecorder is the mock recorder for MockauthStore.
-type MockauthStoreMockRecorder struct {
-	mock *MockauthStore
+// MockAuthStoreMockRecorder is the mock recorder for MockAuthStore.
+type MockAuthStoreMockRecorder struct {
+	mock *MockAuthStore
 }
 
-// NewMockauthStore creates a new mock instance.
-func NewMockauthStore(ctrl *gomock.Controller) *MockauthStore {
-	mock := &MockauthStore{ctrl: ctrl}
-	mock.recorder = &MockauthStoreMockRecorder{mock}
+// NewMockAuthStore creates a new mock instance.
+func NewMockAuthStore(ctrl *gomock.Controller) *MockAuthStore {
+	mock := &MockAuthStore{ctrl: ctrl}
+	mock.recorder = &MockAuthStoreMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockauthStore) EXPECT() *MockauthStoreMockRecorder {
+func (m *MockAuthStore) EXPECT() *MockAuthStoreMockRecorder {
 	return m.recorder
 }
 
-// CheckUserExist mocks base method.
-func (m *MockauthStore) CheckUserExist(ctx context.Context, userID string) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckUserExist", ctx, userID)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CheckUserExist indicates an expected call of CheckUserExist.
-func (mr *MockauthStoreMockRecorder) CheckUserExist(ctx, userID any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckUserExist", reflect.TypeOf((*MockauthStore)(nil).CheckUserExist), ctx, userID)
-}
-
 // Delete mocks base method.
-func (m *MockauthStore) Delete(ctx context.Context, userID string) error {
+func (m *MockAuthStore) Delete(ctx context.Context, userID string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete", ctx, userID)
 	ret0, _ := ret[0].(error)
@@ -64,29 +49,29 @@ func (m *MockauthStore) Delete(ctx context.Context, userID string) error {
 }
 
 // Delete indicates an expected call of Delete.
-func (mr *MockauthStoreMockRecorder) Delete(ctx, userID any) *gomock.Call {
+func (mr *MockAuthStoreMockRecorder) Delete(ctx, userID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockauthStore)(nil).Delete), ctx, userID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockAuthStore)(nil).Delete), ctx, userID)
 }
 
 // Get mocks base method.
-func (m *MockauthStore) Get(ctx context.Context, userID string, token pkg.Refresh) (bool, string, error) {
+func (m *MockAuthStore) Get(ctx context.Context, userID string) (pkg.Hash, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", ctx, userID, token)
-	ret0, _ := ret[0].(bool)
+	ret := m.ctrl.Call(m, "Get", ctx, userID)
+	ret0, _ := ret[0].(pkg.Hash)
 	ret1, _ := ret[1].(string)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
 // Get indicates an expected call of Get.
-func (mr *MockauthStoreMockRecorder) Get(ctx, userID, token any) *gomock.Call {
+func (mr *MockAuthStoreMockRecorder) Get(ctx, userID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockauthStore)(nil).Get), ctx, userID, token)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockAuthStore)(nil).Get), ctx, userID)
 }
 
 // Save mocks base method.
-func (m *MockauthStore) Save(ctx context.Context, token pkg.Refresh, userID, ip string) error {
+func (m *MockAuthStore) Save(ctx context.Context, token pkg.Hash, userID, ip string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Save", ctx, token, userID, ip)
 	ret0, _ := ret[0].(error)
@@ -94,9 +79,9 @@ func (m *MockauthStore) Save(ctx context.Context, token pkg.Refresh, userID, ip 
 }
 
 // Save indicates an expected call of Save.
-func (mr *MockauthStoreMockRecorder) Save(ctx, token, userID, ip any) *gomock.Call {
+func (mr *MockAuthStoreMockRecorder) Save(ctx, token, userID, ip any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockauthStore)(nil).Save), ctx, token, userID, ip)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockAuthStore)(nil).Save), ctx, token, userID, ip)
 }
 
 // Mocknotifier is a mock of notifier interface.

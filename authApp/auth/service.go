@@ -2,18 +2,19 @@ package auth
 
 import (
 	"context"
+	"database/sql"
 	"encoding/base64"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"golang.org/x/crypto/bcrypt"
 	"medodsTestovoe/auth/pkg"
 )
 
-type authStore interface {
-	Save(ctx context.Context, token pkg.Refresh, userID string, ip string) error
-	Get(ctx context.Context, userID string, token pkg.Refresh) (bool, string, error)
+type AuthStore interface {
+	Save(ctx context.Context, token pkg.Hash, userID string, ip string) error
+	Get(ctx context.Context, userID string) (pkg.Hash, string, error)
 	Delete(ctx context.Context, userID string) error
-	CheckUserExist(ctx context.Context, userID string) (bool, error)
 }
 
 type notifier interface {
@@ -22,12 +23,12 @@ type notifier interface {
 
 type Service struct {
 	secretKey string
-	store     authStore
+	store     AuthStore
 	notifier  notifier
 	cl        pkg.Clock
 }
 
-func NewService(secretKey string, store authStore, notifier notifier, cl pkg.Clock) *Service {
+func NewService(secretKey string, store AuthStore, notifier notifier, cl pkg.Clock) *Service {
 	return &Service{
 		secretKey: secretKey,
 		store:     store,
@@ -41,7 +42,7 @@ func (s *Service) Authorize(ctx context.Context, secret string, userID string, i
 	//заполняем токен
 	token := Token{
 		UserID: userID,
-		Secret: secret, //Здесь должен быть uuid.New().String(), но для того что бы тест Authorize правильно работал я вынес secret за пределы приложения
+		Secret: secret, //Здесь должен быть uuid.New().String(), но для того что бы тест Authorize правильно работал я вынес secret за пределы service и он задаётся при вызове функции authorize
 		IP:     ip,
 	}
 	result := AuthTokens{
@@ -49,12 +50,14 @@ func (s *Service) Authorize(ctx context.Context, secret string, userID string, i
 		Refresh: "",
 	}
 	//Проверка сущетсвует ли такой пользователь в бд
-	exist, err := s.store.CheckUserExist(ctx, userID)
-	if err != nil {
-		return Tokens, errors.Wrap(err, "error checking user existence")
+	_, _, err = s.store.Get(ctx, userID)
+	if err == nil { //nil будет если такой уже есть в бд
+		return result, ErrGUIDAlreadyExists
+	} else if err == sql.ErrNoRows { //если ошибка "пользователя нет"
+		err = nil //значит никакой ошибки нет, едем дальше
 	}
-	if exist {
-		return result, ErrUserAlreadyExists
+	if err != nil { //если ошибка другая, значит что-то не так
+		return Tokens, errors.Wrap(err, "error checking user existence")
 	}
 
 	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, token.MapToRefresh(s.cl))
@@ -76,7 +79,11 @@ func (s *Service) Authorize(ctx context.Context, secret string, userID string, i
 	var access pkg.Access
 	accessStr, err := accessToken.SignedString([]byte(s.secretKey))
 	access = pkg.Access(accessStr)
-	err = s.store.Save(ctx, refresh, userID, ip) //сохраняем рефреш, userID и ip в бд
+	hash, err := pkg.HashToken(refresh) //хешируем в bcrypt
+	if err != nil {
+		return result, err
+	}
+	err = s.store.Save(ctx, hash, userID, ip) //сохраняем рефреш, userID и ip в бд
 	if err != nil {
 		return result, err
 	}
@@ -95,12 +102,12 @@ func (s *Service) Refresh(ctx context.Context, userID string, refresh pkg.Refres
 		Refresh: "",
 	}
 	//проверка существует ли такой токен в БД а так же извлечение значения старого ip адреса
-	exists, oldIP, err := s.store.Get(ctx, userID, refresh)
+	storedHash, oldIP, err := s.store.Get(ctx, userID)
+	if err == sql.ErrNoRows {
+		return result, ErrGUIDNotFound
+	}
 	if err != nil {
 		return result, err
-	}
-	if !exists {
-		return result, ErrRefreshTokenNotFound
 	}
 
 	if ip != oldIP { // проверяем соответствует ли текущий ip старому ip при authorize
@@ -108,6 +115,12 @@ func (s *Service) Refresh(ctx context.Context, userID string, refresh pkg.Refres
 		if err != nil {
 			return result, errors.Wrapf(err, "failed to notify new login for user %s from %s, old IP - %s", userID, ip, oldIP)
 		}
+	}
+
+	// Сравнение токена с сохранённым хэшем
+	err = bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(refresh))
+	if err != nil {
+		return result, errors.New("invalid token, not found")
 	}
 	/*
 		!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

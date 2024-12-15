@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"medodsTestovoe/auth"
 	"medodsTestovoe/auth/pkg"
@@ -11,25 +12,19 @@ import (
 )
 
 // Интерфейсы здесь необходимы для реализации моков в тестах
-type db interface {
-	Save(ctx context.Context, token pkg.Refresh, userID string, ip string) error
-	Get(ctx context.Context, userID string, token pkg.Refresh) (bool, string, error)
-	Delete(ctx context.Context, userID string) error
-	CheckUserExist(ctx context.Context, userID string) (bool, error)
-}
 type notifier interface {
 	NotifyNewLogin(ctx context.Context, userID string, oldIP string, newIP string) error
 }
 
 type Server struct {
-	db       db
+	db       auth.AuthStore
 	context  context.Context
 	log      *zap.Logger
 	notifier notifier
 	srv      *auth.Service
 }
 
-func NewServer(db db, router chi.Router, log *zap.Logger, notifier notifier) *Server {
+func NewServer(db auth.AuthStore, router chi.Router, log *zap.Logger, notifier notifier) *Server {
 	server := &Server{ //формируем структуру сервера
 		db:       db,
 		context:  context.Background(),
@@ -46,28 +41,22 @@ func NewServer(db db, router chi.Router, log *zap.Logger, notifier notifier) *Se
 
 func (s Server) loginHandler(writer http.ResponseWriter, request *http.Request) {
 	s.log.Info("serving /login")
-	userID := request.FormValue("user_id")
-	secret := request.FormValue("secret")
+	userID := request.FormValue("GUID")
 	if userID == "" { //защита от пустого юзера
-		http.Error(writer, "empty user", http.StatusUnauthorized)
+		http.Error(writer, "empty GUID", http.StatusUnauthorized)
 		s.log.Error("empty user id")
 		return
 	}
-	if secret == "" { //защита от пустого секрета (см пункт 10 особенностей в readme файле)
-		http.Error(writer, "empty secret", http.StatusUnauthorized)
-		s.log.Error("empty secret")
-		return
-	}
-	var authTokens auth.AuthTokens                                                    //создаём пустые токены которые будет заполнять данными и отдавать в ответе
-	authTokens, err := s.srv.Authorize(s.context, secret, userID, request.RemoteAddr) //здесь основная логика authorize
+	var authTokens auth.AuthTokens                                                                 //создаём пустые токены которые будет заполнять данными и отдавать в ответе
+	authTokens, err := s.srv.Authorize(s.context, uuid.New().String(), userID, request.RemoteAddr) //здесь основная логика authorize
 	if err == auth.ErrWrongToken {
 		http.Error(writer, err.Error(), http.StatusUnauthorized) //если токен кривой, делаем статус анотхарайзд
 		zap.Error(err)
 		return
 	}
-	if err == auth.ErrUserAlreadyExists {
+	if err == auth.ErrGUIDAlreadyExists {
 		http.Error(writer, err.Error(), http.StatusConflict)
-		s.log.Error("user already exists") //если такой юзер уже есть, тогда статус конфликт
+		s.log.Error("GUID already registered") //если такой юзер уже есть, тогда статус конфликт
 		return
 	}
 	if err != nil {
@@ -78,7 +67,7 @@ func (s Server) loginHandler(writer http.ResponseWriter, request *http.Request) 
 
 	if err := json.NewEncoder(writer).Encode(authTokens); err != nil { //если всё ок то формируем тело ответа в Джейсона
 		http.Error(writer, err.Error(), http.StatusInternalServerError)
-		s.log.Error("failed to encode auth tokens", zap.String("user_id", userID)) //ошибка если не получилось сформировать тело ответа
+		s.log.Error("failed to encode auth tokens", zap.String("GUID", userID)) //ошибка если не получилось сформировать тело ответа
 		return
 	}
 	s.log.Info("/login serving done")
@@ -90,7 +79,7 @@ func (s Server) refreshHandler(writer http.ResponseWriter, request *http.Request
 
 	refreshStr := request.FormValue("refresh_token")
 	refresh := pkg.Refresh(refreshStr)
-	userID := request.FormValue("user_id")
+	userID := request.FormValue("GUID")
 	newTokens, err := s.srv.Refresh(s.context, userID, refresh, request.RemoteAddr)
 	if userID == "" {
 		http.Error(writer, "empty user", http.StatusUnauthorized)

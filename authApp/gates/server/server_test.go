@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"errors"
+	"database/sql"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -14,23 +14,19 @@ import (
 
 type mockStore struct{}
 
-func (m *mockStore) Save(ctx context.Context, token pkg.Refresh, userID string, ip string) error {
+func (m *mockStore) Save(ctx context.Context, token pkg.Hash, userID string, ip string) error {
 	return nil
 }
 
-func (m *mockStore) Get(ctx context.Context, userID string, token pkg.Refresh) (bool, string, error) {
+func (m *mockStore) Get(ctx context.Context, userID string) (pkg.Hash, string, error) {
 	if userID == "testUser" {
-		return true, "255.255.255.255", nil
+		return pkg.Hash("testHash"), "255.255.255.255", nil
 	}
-	return false, "", errors.New("not found")
+	return pkg.Hash(""), "", sql.ErrNoRows
 }
 
 func (m *mockStore) Delete(ctx context.Context, userID string) error {
 	return nil
-}
-
-func (m *mockStore) CheckUserExist(ctx context.Context, userID string) (bool, error) {
-	return userID == "testUser", nil
 }
 
 type mockNotifier struct{}
@@ -48,7 +44,7 @@ func TestServer_LoginHandler(t *testing.T) {
 	_ = NewServer(mockDb, r, logger, mockNotifier)
 
 	//стучимся с неправильным методом
-	req := httptest.NewRequest(http.MethodGet, "/login?user_id=123testUser123&secret=789", nil)
+	req := httptest.NewRequest(http.MethodGet, "/login?GUID=123testUser123", nil)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
@@ -64,7 +60,7 @@ func TestServer_LoginHandler(t *testing.T) {
 	require.Equal(t, http.StatusUnauthorized, rec.Code, "expected status 401")
 
 	//Стучимся с правильным запросом
-	req = httptest.NewRequest(http.MethodPost, "/login?user_id=123testUser123&secret=789", nil)
+	req = httptest.NewRequest(http.MethodPost, "/login?GUID=123testUser123", nil)
 	rec = httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
@@ -81,7 +77,7 @@ func TestServer_RefreshHandler(t *testing.T) {
 	_ = NewServer(mockDb, r, logger, mockNotifier)
 
 	//стучимся с неправильным методом
-	req := httptest.NewRequest(http.MethodGet, "/refresh?refresh_token=VpZlEuSkZMVFQwRnVQblJkMnI4SGxxNU1FdVZtVHhmWFEydEF0em9odzNoaVhCTQ&user_id=1", nil)
+	req := httptest.NewRequest(http.MethodGet, "/refresh?refresh_token=VpZlEuSkZMVFQwRnVQblJkMnI4SGxxNU1FdVZtVHhmWFEydEF0em9odzNoaVhCTQ&GUID=1", nil)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
@@ -95,7 +91,7 @@ func TestServer_RefreshHandler(t *testing.T) {
 	//ловим StatusUnauthorized
 	require.Equal(t, http.StatusUnauthorized, rec.Code, "expected status 401")
 	//отправляем нормальный запрос
-	req = httptest.NewRequest(http.MethodPost, "/refresh?refresh_token=VpZlEuSkZMVFQwRnVQblJkMnI4SGxxNU1FdVZtVHhmWFEydEF0em9odzNoaVhCTQ&user_id=1", nil)
+	req = httptest.NewRequest(http.MethodPost, "/refresh?refresh_token=VpZlEuSkZMVFQwRnVQblJkMnI4SGxxNU1FdVZtVHhmWFEydEF0em9odzNoaVhCTQ&GUID=1", nil)
 	rec = httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	//но всё ещё получаем ошибку тк у нас пустая тестовая бд и неоткуда взяться refresh и никак не провести операцию
