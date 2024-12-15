@@ -41,7 +41,7 @@ func (s *Service) Authorize(ctx context.Context, secret string, userID string, i
 	//заполняем токен
 	token := Token{
 		UserID: userID,
-		Secret: secret,
+		Secret: secret, //Здесь должен быть uuid.New().String(), но для того что бы тест Authorize правильно работал я вынес secret за пределы приложения
 		IP:     ip,
 	}
 	result := AuthTokens{

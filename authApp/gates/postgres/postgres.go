@@ -10,7 +10,7 @@ import (
 	"medodsTestovoe/auth/pkg"
 )
 
-func hashToken(token string) (string, error) {
+func hashToken(token string) (string, error) { //функция перегоняющая токен в bcrypt hash
 	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(token), bcrypt.DefaultCost)
 	if err != nil {
 		fmt.Println(err)
@@ -54,6 +54,7 @@ func (s Store) Get(ctx context.Context, userID string, token pkg.Refresh) (bool,
 	}
 
 	// Сравнение токена с сохранённым хэшем
+	//вообще стоило бы это проверять в service, но код короткий и вся эта программа простая, в таких масштабах считаю это допустимым, если бы подразумевалось масштабирование перенёс бы в pkg и вызывал бы в service
 	err = bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(token))
 	if err != nil {
 		return false, "", errors.New("invalid token, not found")
@@ -71,6 +72,7 @@ func (s Store) Delete(ctx context.Context, userID string) error {
 }
 
 func (s Store) CheckUserExist(ctx context.Context, userID string) (bool, error) {
+	//дублирует функционал Get, если бы там не было блока с bcrypt (см строку 57), то можно было бы обойтись без CheckUserExist
 	query := "SELECT 1 FROM tokens where user_id = $1"
 	rows, err := s.db.QueryContext(ctx, query, userID)
 	defer rows.Close()
