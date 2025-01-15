@@ -16,7 +16,6 @@ type Token struct {
 func (t Token) MapToAccess(cl pkg.Clock, refresh string) jwt.Claims {
 	return jwt.MapClaims{
 		"user_id": t.UserID,
-		"refresh": refresh,
 		"ip":      t.IP,
 		"exp":     cl.Now().Add(time.Second * 10).Unix(), //интерфейс получения времени + 24 часа
 	}

@@ -7,17 +7,17 @@ import (
 )
 
 type DB struct {
-	DbHost     string `yaml:"db_host" env-required:"true"`
-	DbPort     string `yaml:"db_port"`
-	DbUser     string `yaml:"db_user" env-required:"true"`
-	DbPassword string `yaml:"db_password" env-required:"true"`
-	DbName     string `yaml:"db_name" env-required:"true"`
-	DbSSLMode  string `yaml:"db_sslmode" env-required:"true"`
+	DbHost     string `yaml:"host" env-required:"true"`
+	DbPort     string `yaml:"port"`
+	DbUser     string `yaml:"user" env-required:"true"`
+	DbPassword string `yaml:"password" env-required:"true"`
+	DbName     string `yaml:"name" env-required:"true"`
+	DbSSLMode  string `yaml:"sslmode" env-required:"true"`
 }
 
 type Server struct {
-	ServerHost string `yaml:"server_host" env-required:"true"`
-	ServerPort string `yaml:"server_port"`
+	ServerHost string `yaml:"host" env-required:"true"`
+	ServerPort string `yaml:"port"`
 }
 
 type Config struct {
